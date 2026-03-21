@@ -1,0 +1,15 @@
+﻿@{
+    ViewData["Title"] = "Home";
+}
+<form id="shortenForm">
+    <div class="form-outline mb-4">
+        <label class="form-label" for="sourceLink">Source Link</label>
+        <input type="text" class="form-control" name="sourceLink" data-val-required="Source Link is required"/>
+    </div>
+    <p id="output">Shorten: </p>
+    <button onclick="onSubmitShortenLink(event)">Create</button>
+</form>
+
+@section Scripts {
+    <self-script></self-script>
+}
