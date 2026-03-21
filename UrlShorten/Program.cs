@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using UrlShorten.Infrastructures.Abstracts;
 using UrlShorten.Infrastructures.Implements;
@@ -19,6 +20,18 @@ builder.Services.AddSingleton<IRabbitMqBus, RabbitMqBus>();
 builder.Services.AddMemoryCache();
 
 builder.Services.AddHostedService<UpdateShortenUrlConsumer>();
+
+builder.Services.AddRateLimiter(rlOptions =>
+{
+    rlOptions.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    rlOptions.AddTokenBucketLimiter("token", options =>
+    {
+        options.TokenLimit = 1000;
+        options.ReplenishmentPeriod = TimeSpan.FromHours(1);
+        options.TokensPerPeriod = 700;
+        options.AutoReplenishment = true;
+    });
+});
 
 builder.Services.AddControllersWithViews()
     .AddRazorRuntimeCompilation();
@@ -42,6 +55,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+app.UseRateLimiter();
 app.UseHttpsRedirection();
 app.UseRouting();
 

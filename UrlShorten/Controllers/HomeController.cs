@@ -1,6 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using UrlShorten.Infrastructures.Abstracts;
 
 namespace UrlShorten.Controllers
 {
