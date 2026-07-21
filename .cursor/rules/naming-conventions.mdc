@@ -1,0 +1,34 @@
+---
+description: Naming conventions for C# code
+alwaysApply: true
+---
+
+# Naming Conventions
+
+## Interfaces
+- Prefix with `I` + PascalCase
+- Examples: `IShortenService`, `ICacheService`, `IRabbitMqBus`
+
+## Implementations
+- Descriptive name + `Service` suffix
+- Examples: `Base62ShortenService`, `MemoryCacheService`
+
+## Entities
+- PascalCase, singular nouns
+- Examples: `ShortenLink`, `BaseEntity<T>`
+
+## Methods
+- PascalCase, async methods end with `Async`
+- Examples: `ShortenUrlAsync()`, `GetShortenPureValueAsync()`
+
+## Private Fields
+- `_` prefix + camelCase
+- Examples: `_context`, `_hostDomain`, `_messageBus`
+
+## Constants
+- PascalCase
+- Examples: `UpdateShortenPathQueue`
+
+## Queue Names (RabbitMQ)
+- kebab-case, descriptive
+- Examples: `shorten-link.update`

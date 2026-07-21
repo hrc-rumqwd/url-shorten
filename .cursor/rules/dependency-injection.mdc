@@ -1,0 +1,36 @@
+---
+description: DI registration patterns and service lifetimes
+alwaysApply: true
+---
+
+# Dependency Injection Guidelines
+
+## Service Lifetimes
+
+### Scoped (Per-Request)
+Use for services that access database or have request-specific state:
+```csharp
+builder.Services.AddScoped<IShortenService, Base62ShortenService>();
+```
+
+### Singleton (Shared)
+Use for stateless services, caching, and message bus:
+```csharp
+builder.Services.AddSingleton<ICacheService, MemoryCacheService>();
+builder.Services.AddSingleton<IRabbitMqBus, RabbitMqBus>();
+```
+
+### Hosted Services
+Use for background workers consuming messages:
+```csharp
+builder.Services.AddHostedService<UpdateShortenUrlConsumer>();
+```
+
+## Primary Constructors
+Prefer primary constructors (C# 12+) for dependency injection:
+```csharp
+public class MyService(IDbContext context, ICacheService cache) : IMyService
+{
+    // Dependencies are automatically assigned to private fields
+}
+```

@@ -1,0 +1,31 @@
+---
+description: .NET project architecture and layer patterns
+alwaysApply: true
+---
+
+# Architecture Guidelines
+
+## Layer Structure
+
+Follow the existing layered architecture:
+
+```
+Controllers/       → HTTP handlers, thin layer
+Models/           → Entities, DTOs, shared contracts
+  ├── Commons/    → Result<T>, interfaces, base classes
+  ├── Entities/   → Database entities
+  └── Enums/      → Enumerations
+Infrastructures/  → Business logic
+  ├── Abstracts/  → Interface definitions (always here)
+  └── Implements/ → Concrete service implementations
+Jobs/             → Background workers
+  └── Consumers/  → RabbitMQ consumers
+Persistences/     → DbContext and data access
+```
+
+## Key Principles
+
+1. **Dependency Inversion**: Controllers depend on abstractions (`IService`), never concrete implementations
+2. **Interface Segregation**: Keep interfaces small and focused (`IEntityId<T>`, `IAuditableEntity`)
+3. **CQRS-lite**: Cache-first for reads, DB + messaging for writes
+4. **Result Pattern**: Services return `Result<T>` instead of throwing exceptions for expected failures
