@@ -168,3 +168,6 @@ ApplicationHost.config
 *.DS_Store
 Thumbs.db
 Desktop.ini
+
+.cursorrules
+.cursor/*

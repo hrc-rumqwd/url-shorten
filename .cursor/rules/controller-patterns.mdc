@@ -1,0 +1,51 @@
+---
+description: Controller patterns and conventions
+globs: **/Controllers/*.cs
+alwaysApply: false
+---
+
+# Controller Guidelines
+
+## API Controllers
+Use `[ApiController]` attribute and inherit from `ControllerBase`:
+```csharp
+[ApiController]
+[Route("api/resource")]
+public class ResourceController(IService service) : ControllerBase
+{
+}
+```
+
+## MVC Controllers
+Use `[Controller]` attribute and inherit from `Controller` for views:
+```csharp
+[Controller]
+public class HomeController : Controller
+{
+    public IActionResult Index() => View();
+}
+```
+
+## Dependency Injection
+Use primary constructors:
+```csharp
+public class ShortenController(IShortenService shortenService) : ControllerBase
+```
+
+## Return Results Pattern
+Use Result pattern for service calls:
+```csharp
+[HttpPost]
+public async Task<IActionResult> Action(string input)
+{
+    var result = await _service.MethodAsync(input);
+    return result.IsSuccess 
+        ? Ok(result) 
+        : BadRequest(result);
+}
+```
+
+## Route Attributes
+- API routes: `[Route("api/resource")]`
+- Specific endpoints: `[HttpGet("{id}")]` or `[HttpPost]`
+- Root-level routes: `[HttpGet("/path")]`

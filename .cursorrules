@@ -1,0 +1,350 @@
+# URL Shortener - Cursor Rules
+
+> AI coding guidelines for the .NET 10 URL Shortener project
+
+## Project Overview
+
+This is an ASP.NET Core 10 web application with:
+- **.NET 10** (latest preview)
+- **PostgreSQL** with Entity Framework Core
+- **RabbitMQ** for asynchronous messaging
+- **Result Pattern** for error handling
+- **Layered Architecture** with clean separation of concerns
+
+---
+
+## Architecture & Layer Structure
+
+Follow the existing layered architecture strictly:
+
+```
+Controllers/       → HTTP handlers, thin layer (delegate to services)
+Models/           → Entities, DTOs, shared contracts
+  ├── Commons/    → Result<T>, interfaces, base classes
+  ├── Entities/   → Database entities
+  └── Enums/      → Enumerations
+Infrastructures/  → Business logic layer
+  ├── Abstracts/  → Interface definitions (always here!)
+  └── Implements/ → Concrete service implementations
+Jobs/             → Background workers
+  └── Consumers/  → RabbitMQ consumers (IHostedService)
+Persistences/     → DbContext and data access
+```
+
+### Key Principles
+
+1. **Dependency Inversion**: Controllers depend on abstractions (`IService`), never concrete implementations
+2. **Interface Segregation**: Keep interfaces small and focused (`IEntityId<T>`, `IAuditableEntity`)
+3. **CQRS-lite**: Cache-first for reads, DB + messaging for writes
+4. **Result Pattern**: Services return `Result<T>` instead of throwing exceptions for expected failures
+
+---
+
+## Naming Conventions
+
+| Category | Pattern | Examples |
+|----------|---------|----------|
+| **Interfaces** | `I` + PascalCase | `IShortenService`, `ICacheService`, `IRabbitMqBus` |
+| **Implementations** | Descriptive + `Service` suffix | `Base62ShortenService`, `MemoryCacheService` |
+| **Entities** | PascalCase, singular | `ShortenLink`, `BaseEntity<T>` |
+| **Methods** | PascalCase, `Async` suffix | `ShortenUrlAsync()`, `GetShortenPureValueAsync()` |
+| **Private Fields** | `_` prefix + camelCase | `_context`, `_hostDomain`, `_messageBus` |
+| **Constants** | PascalCase | `UpdateShortenPathQueue` |
+| **Queue Names** | kebab-case | `shorten-link.update` |
+
+---
+
+## Dependency Injection
+
+### Service Lifetimes
+
+**Scoped (Per-Request)** - Use for services that access database or have request-specific state:
+```csharp
+builder.Services.AddScoped<IShortenService, Base62ShortenService>();
+```
+
+**Singleton (Shared)** - Use for stateless services, caching, and message bus:
+```csharp
+builder.Services.AddSingleton<ICacheService, MemoryCacheService>();
+builder.Services.AddSingleton<IRabbitMqBus, RabbitMqBus>();
+```
+
+**Hosted Services** - Use for background workers consuming messages:
+```csharp
+builder.Services.AddHostedService<UpdateShortenUrlConsumer>();
+```
+
+### Primary Constructors
+
+Prefer primary constructors (C# 12+) for dependency injection:
+```csharp
+public class MyService(IDbContext context, ICacheService cache) : IMyService
+{
+    // Dependencies are automatically assigned to private fields
+}
+```
+
+---
+
+## Entity Patterns
+
+### Base Entity
+
+All entities inherit from `BaseEntity<TKey>`:
+```csharp
+public class ShortenLink : BaseEntity<long>
+{
+    public string SourceLink { get; set; }
+    public string ShortenPath { get; set; }
+}
+```
+
+### Factory Methods
+
+Entities must have static factory methods for creation (not public constructors):
+```csharp
+public static ShortenLink Create(string sourceLink, string shortenPath)
+    => new ShortenLink
+    {
+        CreatedAt = DateTime.UtcNow,
+        CreatedBy = "System",
+        ShortenPath = shortenPath,
+        SourceLink = sourceLink,
+    };
+```
+
+### Entity Interfaces
+
+Entities implement standard interfaces:
+- `IEntityId<TKey>` → Provides `Id` property
+- `IAuditableEntity` → Provides `CreatedAt`, `CreatedBy`
+
+---
+
+## Service Implementation
+
+### Interface Location
+
+Always define interfaces in `Infrastructures/Abstracts/`:
+```csharp
+// Abstracts/IMyService.cs
+public interface IMyService
+{
+    Task<Result<string>> DoWorkAsync(string input);
+}
+```
+
+### Implementation Location
+
+Implement in `Infrastructures/Implements/`:
+```csharp
+// Implements/MyService.cs
+public class MyService(IDbContext context, ILogger<MyService> logger) : IMyService
+{
+    public async Task<Result<string>> DoWorkAsync(string input)
+    {
+        // Implementation
+    }
+}
+```
+
+### Result Pattern
+
+Service methods must return `Result<T>` instead of throwing exceptions:
+```csharp
+public async Task<Result<string>> GetDataAsync(string id)
+{
+    var data = await _context.Entities.FindAsync(id);
+    
+    return data is null 
+        ? Result<string>.Failure("Not found") 
+        : Result<string>.Success(data.Value);
+}
+```
+
+### Caching Pattern
+
+Implement cache-aside for read operations:
+```csharp
+// Check cache first
+var cached = _cache.Get<string>(key);
+if (cached != null) return Result<string>.Success(cached);
+
+// Fall back to database
+var data = await _context.Entities.FindAsync(key);
+if (data != null) _cache.Add(key, data.Value);
+
+return data != null 
+    ? Result<string>.Success(data.Value)
+    : Result<string>.Failure("Not found");
+```
+
+---
+
+## Controller Patterns
+
+### API Controllers
+
+Use `[ApiController]` attribute and inherit from `ControllerBase`:
+```csharp
+[ApiController]
+[Route("api/resource")]
+public class ResourceController(IService service) : ControllerBase
+{
+    [HttpPost]
+    public async Task<IActionResult> Action(string input)
+    {
+        var result = await _service.MethodAsync(input);
+        return result.IsSuccess 
+            ? Ok(result) 
+            : BadRequest(result);
+    }
+}
+```
+
+### MVC Controllers
+
+Use `[Controller]` attribute and inherit from `Controller` for views:
+```csharp
+[Controller]
+public class HomeController : Controller
+{
+    public IActionResult Index() => View();
+
+    [HttpGet("not-found")]
+    public IActionResult NotFound() => View();
+}
+```
+
+### Route Attributes
+
+- API routes: `[Route("api/resource")]`
+- Specific endpoints: `[HttpGet("{id}")]` or `[HttpPost]`
+- Root-level routes: `[HttpGet("/path")]`
+
+---
+
+## RabbitMQ Messaging
+
+### Publishing Messages
+
+Use `IRabbitMqBus` to publish messages:
+```csharp
+private const string UpdateShortenPathQueue = "shorten-link.update";
+
+await _messageBus.PublishAsync(message, UpdateShortenPathQueue);
+```
+
+### Queue Names
+
+Use kebab-case with domain prefix:
+```csharp
+private const string UpdateShortenPathQueue = "shorten-link.update";
+private const string UserNotificationQueue = "user.notification.email";
+```
+
+### Consumer Setup
+
+Implement `IHostedService` for background consumers:
+```csharp
+public class MyConsumer(IServiceProvider sp) : IHostedService
+{
+    public async Task StartAsync(CancellationToken cancellationToken)
+    {
+        var rabbitMqBus = sp.GetRequiredService<IRabbitMqBus>();
+        var connection = await rabbitMqBus.CreateConnectionAsync();
+        var channel = await connection.CreateChannelAsync();
+        
+        await channel.QueueDeclareAsync(
+            queue: "queue-name",
+            durable: true,
+            exclusive: false,
+            autoDelete: false);
+        
+        var consumer = new AsyncEventingBasicConsumer(channel);
+        consumer.ReceivedAsync += async (model, ea) =>
+        {
+            try
+            {
+                using var scope = sp.CreateScope();
+                // Process message
+                await channel.BasicAckAsync(ea.DeliveryTag, multiple: false);
+            }
+            catch (Exception ex)
+            {
+                await channel.BasicNackAsync(ea.DeliveryTag, multiple: false, requeue: true);
+            }
+        };
+        
+        await channel.BasicConsumeAsync(queue: "queue-name", autoAck: false, consumer: consumer);
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+}
+```
+
+### Consumer Requirements
+
+- Always use `durable: true` for queues
+- Use manual acknowledgment (`autoAck: false`)
+- Explicitly `BasicAckAsync` on success
+- `BasicNackAsync` with `requeue: true` on failure
+- Always create a service scope when using scoped services like DbContext
+
+---
+
+## Testing Patterns
+
+Use xUnit with Moq for unit testing:
+```csharp
+public class MyServiceTest
+{
+    [Fact]
+    public async Task MethodName_Scenario_ExpectedBehavior()
+    {
+        // Arrange
+        var mockContext = new Mock<ApplicationDbContext>();
+        var service = new MyService(mockContext.Object);
+        
+        // Act
+        var result = await service.MethodAsync(input);
+        
+        // Assert
+        Assert.True(result.IsSuccess);
+    }
+}
+```
+
+---
+
+## Code Style Guidelines
+
+- Use file-scoped namespaces
+- Use implicit usings
+- Prefer `var` when type is obvious
+- Use pattern matching where appropriate
+- Add XML documentation for public APIs
+- Keep methods small and focused (single responsibility)
+- Use `CancellationToken` for async operations
+- Prefer `is null` / `is not null` over `== null` / `!= null`
+
+---
+
+## When Adding New Features
+
+1. **Start with the interface** in `Infrastructures/Abstracts/`
+2. **Define entities** in `Models/Entities/` inheriting from `BaseEntity<T>`
+3. **Implement the service** in `Infrastructures/Implements/`
+4. **Register in DI** in `Program.cs` with correct lifetime
+5. **Create controller** in `Controllers/` using primary constructor
+6. **Add tests** in `UrlShorten.Test/` following existing patterns
+
+---
+
+## Files and Patterns Reference
+
+- Result Pattern: `UrlShorten/Models/Commons/Result.cs`
+- Base Entity: `UrlShorten/Models/Commons/BaseEntity.cs`
+- Service Example: `UrlShorten/Infrastructures/Implements/Base62ShortenService.cs`
+- Controller Example: `UrlShorten/Controllers/ShortenController.cs`
+- Consumer Example: `UrlShorten/Jobs/Consumers/UpdateShortenUrlConsumer.cs`

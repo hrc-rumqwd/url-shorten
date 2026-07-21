@@ -1,0 +1,64 @@
+---
+description: RabbitMQ messaging patterns
+globs: **/Jobs/**/*.cs,**/Infrastructures/**/*RabbitMq*.cs
+alwaysApply: false
+---
+
+# RabbitMQ Messaging Guidelines
+
+## Publishing Messages
+Use `IRabbitMqBus` to publish messages:
+```csharp
+await _messageBus.PublishAsync(message, "queue-name");
+```
+
+## Queue Names
+Use kebab-case with domain prefix:
+```csharp
+private const string UpdateShortenPathQueue = "shorten-link.update";
+```
+
+## Consumer Setup
+Implement `IHostedService` for background consumers:
+```csharp
+public class MyConsumer(IServiceProvider sp) : IHostedService
+{
+    public async Task StartAsync(CancellationToken cancellationToken)
+    {
+        var rabbitMqBus = sp.GetRequiredService<IRabbitMqBus>();
+        var connection = await rabbitMqBus.CreateConnectionAsync();
+        var channel = await connection.CreateChannelAsync();
+        
+        await channel.QueueDeclareAsync(
+            queue: "queue-name",
+            durable: true,
+            exclusive: false,
+            autoDelete: false);
+    }
+}
+```
+
+## Error Handling
+Always use manual acknowledgment with retry:
+```csharp
+consumer.ReceivedAsync += async (model, ea) =>
+{
+    try
+    {
+        // Process message
+        await channel.BasicAckAsync(ea.DeliveryTag, multiple: false);
+    }
+    catch (Exception ex)
+    {
+        // Requeue for retry
+        await channel.BasicNackAsync(ea.DeliveryTag, multiple: false, requeue: true);
+    }
+};
+```
+
+## Scoped Services in Consumers
+Create a scope when using scoped services:
+```csharp
+using var scope = sp.CreateScope();
+var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+```

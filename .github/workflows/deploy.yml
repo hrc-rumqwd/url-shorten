@@ -1,0 +1,36 @@
+name: Build and Deploy to Somee
+
+on:
+  push:
+    branches:
+      - main  # Trigger workflow on pushes to main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Checkout repository code
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 2. Setup .NET SDK
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x' # Adjust to match your .NET version (e.g., 8.0, 9.0)
+
+    # 3. Publish the application to a local folder
+    - name: Publish App
+      run: dotnet publish -c Release -o ./publish
+
+    # 4. Sync files to Somee via FTP
+    - name: FTP Deploy
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      with:
+        server: ${{ secrets.FTP_SERVER }}
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        local-dir: ./publish/
+        server-dir: ${{ secrets.SOMEE_ROOT_PATH }} # Replace with your actual web root directory on Somee
+        protocol: ftps z

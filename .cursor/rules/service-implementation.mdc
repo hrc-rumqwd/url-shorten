@@ -1,0 +1,55 @@
+---
+description: Service implementation patterns
+globs: **/Infrastructures/**/*.cs
+alwaysApply: false
+---
+
+# Service Implementation Guidelines
+
+## Interface Location
+Always define interfaces in `Infrastructures/Abstracts/`:
+```csharp
+// Abstracts/IMyService.cs
+public interface IMyService
+{
+    Task<Result<string>> DoWorkAsync(string input);
+}
+```
+
+## Implementation Location
+Implement in `Infrastructures/Implements/`:
+```csharp
+// Implements/MyService.cs
+public class MyService : IMyService
+{
+    public async Task<Result<string>> DoWorkAsync(string input)
+    {
+        // Implementation
+    }
+}
+```
+
+## Result Pattern
+Service methods should return `Result<T>`:
+```csharp
+public async Task<Result<string>> GetDataAsync(string id)
+{
+    var data = await _context.Entities.FindAsync(id);
+    
+    return data is null 
+        ? Result<string>.Failure("Not found") 
+        : Result<string>.Success(data.Value);
+}
+```
+
+## Caching Pattern
+Implement cache-aside for read operations:
+```csharp
+// Check cache first
+var cached = _cache.Get<string>(key);
+if (cached != null) return Result<string>.Success(cached);
+
+// Fall back to database
+var data = await _context.Entities.FindAsync(key);
+if (data != null) _cache.Add(key, data.Value);
+```
