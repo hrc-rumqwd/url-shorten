@@ -34,6 +34,7 @@ jobs:
         files: './publish/appsettings.json'
       env:
         ConnectionStrings.Default: ${{ secrets.DB_CONNECTION_STRING }}
+        Host: ${{ secrets.RABBITMQ_HOST }}
         MessageBus.Host: ${{ secrets.MESSAGEBUS_HOST }}
         MessageBus.UserName: ${{ secrets.MESSAGEBUS_USERNAME }}
         MessageBus.Password: ${{ secrets.MESSAGEBUS_PASSWORD }}
