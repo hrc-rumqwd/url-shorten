@@ -24,6 +24,19 @@ jobs:
     # 3. Publish the application to a local folder
     - name: Publish App
       run: dotnet publish -c Release -o ./publish
+      
+    # 3.5 Use Variable Substitution to edit the appsettings.json directly, instead of setting env variable for OS
+    # Somee only receives files, so it does not know the env variables in YAML of GitHub Actions.
+    # use microsoft/variable-substitution to edit file appsettings.json before uploading through FTP
+    - name: App Settings Variable Substitution
+      uses: microsoft/variable-substitution@v1
+      with:
+        files: './publish/appsettings.json'
+      env:
+        ConnectionStrings.Default: ${{ secrets.DB_CONNECTION_STRING }}
+        MessageBus.Host: ${{ secrets.MESSAGEBUS_HOST }}
+        MessageBus.UserName: ${{ secrets.MESSAGEBUS_USERNAME }}
+        MessageBus.Password: ${{ secrets.MESSAGEBUS_PASSWORD }}
 
     # 4. Sync files to Somee via FTP
     - name: FTP Deploy

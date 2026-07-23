@@ -129,7 +129,6 @@ appsettings.Development.json
 appsettings.Local.json
 appsettings.*.local.json
 appsettings.*.json
-appsettings.json
 
 # Entity Framework Migrations model snapshot conflicts
 *_ModelSnapshot.cs
