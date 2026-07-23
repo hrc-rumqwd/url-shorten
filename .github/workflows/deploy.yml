@@ -26,11 +26,11 @@ jobs:
 
     # 4. Sync files to Somee via FTP
     - name: FTP Deploy
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      uses: SamKirkland/FTP-Deploy-Action@v4.4.0
       with:
         server: ${{ secrets.FTP_SERVER }}
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
         local-dir: ./publish/
         server-dir: ${{ secrets.SOMEE_ROOT_PATH }} # Replace with your actual web root directory on Somee
-        protocol: ftps z
+        protocol: ftps
