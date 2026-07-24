@@ -21,7 +21,8 @@ namespace UrlShorten.Infrastructures.Implements
             {
                 HostName = _configuration["MessageBus:Host"],
                 UserName = _configuration["MessageBus:UserName"],
-                Password = _configuration["MessageBus:Password"]
+                Password = _configuration["MessageBus:Password"],
+                Port = int.Parse(_configuration["MessageBus:Port"])
             };
 
             return await factory.CreateConnectionAsync();
