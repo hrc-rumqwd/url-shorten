@@ -12,9 +12,9 @@ COPY ["UrlShorten/", "UrlShorten/"]
 # Restore dependencies and build
 WORKDIR /src/UrlShorten
 RUN dotnet restore "./UrlShorten.csproj"
-RUN dotnet build "./UrlShorten.csproj" -c "$BUILD_CONFIGURATION" -o /app/build --no-restore
+RUN dotnet build "./UrlShorten.csproj" -c "$BUILD_CONFIGURATION" -o /app/build
 
-RUN dotnet publish "./UrlShorten.csproj" -c "$BUILD_CONFIGURATION" -o /app/publish --no-build --no-restore
+RUN dotnet publish "./UrlShorten.csproj" -c "$BUILD_CONFIGURATION" -o /app/publish
 
 # Runtime
 FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION} as runtime
