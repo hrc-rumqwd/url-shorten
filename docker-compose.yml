@@ -51,6 +51,8 @@ services:
       - MessageBus__UserName=${URL_SHORTEN_RABBITMQ_USERNAME:-guest}
       - MessageBus__Password=${URL_SHORTEN_RABBITMQ_PASSWORD:-guest}
 
+      - Host=${URL_SHORTEN_APP_HOST:-localhost}
+
     depends_on:
       postgres:
         condition: service_healthy
