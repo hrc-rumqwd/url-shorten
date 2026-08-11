@@ -1,0 +1,70 @@
+services:
+  postgres:
+    image: postgres:18.4
+    container_name: url-shorten-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${URL_SHORTEN_DB_NAME:-shorten-app}
+      POSTGRES_USER: ${URL_SHORTEN_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${URL_SHORTEN_DB_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - url-shorten-network
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: url-shortener-messsagebus
+    restart: unless-stopped
+    ports:
+      - "5672:5672" # AMQP protocol
+      - "15672:15672" # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: ${URL_SHORTEN_RABBITMQ_USERNAME:-guest}
+      RABBITMQ_DEFAULT_PASS: ${URL_SHORTEN_RABBITMQ_PASSWORD:-guest}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - url-shorten-network
+
+  web:
+    image: ghcr.io/hrc-rumqwd/url-shorten:latest
+    container_name: url_shorten_app
+    restart: always
+    ports:
+      - "7147:7147" # Port ngoài VM : Port trong container .NET
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      # Connection String to connect to container postgtes url-shorten-db
+      - ConnectionStrings__Default=Host=postgres;Database=${URL_SHORTEN_DB_NAME:-shorten-app};User ID=${URL_SHORTEN_DB_USER:-postgres};Password=${URL_SHORTEN_DB_PASSWORD:-postgres}
+
+      - MessageBus__Host=${URL_SHORTEN_RABBITMQ_HOST:-rabbitmq}
+      - MessageBus__Port=${URL_SHORTEN_RABBITMQ_PORT:-5672}
+      - MessageBus__UserName=${URL_SHORTEN_RABBITMQ_USERNAME:-guest}
+      - MessageBus__Password=${URL_SHORTEN_RABBITMQ_PASSWORD:-guest}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - url-shorten-network
+
+# Internal network & Volume store data
+volumes:
+  rabbitmq_data:
+    driver: local
+  postgres_data:
+
+networks:
+  url-shorten-network:
+    driver: bridge

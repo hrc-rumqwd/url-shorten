@@ -1,0 +1,17 @@
+# Build outputs
+**/bin/
+**/obj/
+**/out/
+
+# IDE and local settings
+**/.vs/
+**/.vscode/
+**/*.user
+**/*.suo
+
+# Sensitive or non-essential files
+**/.git/
+**/.env
+**/node_modules/
+Dockerfile
+.dockerignore
