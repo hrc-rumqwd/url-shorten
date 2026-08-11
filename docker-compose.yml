@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:18.4
     container_name: url-shorten-db
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${URL_SHORTEN_DB_NAME:-shorten-app}
       POSTGRES_USER: ${URL_SHORTEN_DB_USER:-postgres}
