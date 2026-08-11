@@ -27,6 +27,7 @@ jobs:
           tags: ghcr.io/hrc-rumqwd/url-shorten:latest
 
   deploy:
+    environment: url-shorten-local-linux
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
